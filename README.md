@@ -1165,6 +1165,7 @@ _Useful libraries or tools that don't fit in the categories above._
 - [blinker](https://github.com/pallets-eco/blinker) - A fast Python in-process signal/event dispatching system.
 - [boltons](https://github.com/mahmoud/boltons) - A set of pure-Python utilities.
 - [itsdangerous](https://github.com/pallets/itsdangerous) - Various helpers to pass trusted data to untrusted environments.
+- [pygmy](https://github.com/amitt001/pygmy) - An open-source, feature rich & extensible url-shortener + analytics written in Python.
 - [tryton](https://github.com/tryton/tryton) - A general-purpose business framework.
 
 ## Resources
