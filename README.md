@@ -1154,6 +1154,7 @@ _Libraries for programming with hardware._
 
 _Python programming on Microsoft Windows._
 
+- [python-evtx](https://github.com/williballenthin/python-evtx) - Pure Python parser for Windows Event Log (.evtx) files, enabling cross-platform forensic analysis of Windows system and security logs.
 - [pythonnet](https://github.com/pythonnet/pythonnet) - Python Integration with the .NET Common Language Runtime (CLR).
 - [pywin32](https://github.com/mhammond/pywin32) - Python Extensions for Windows.
 - [winpython](https://github.com/winpython/winpython) - Portable development environment for Windows 10/11.
