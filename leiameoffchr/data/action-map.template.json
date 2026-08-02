@@ -1,0 +1,15 @@
+{
+  "product": "chrome",
+  "topic": "general",
+  "actions": [
+    {
+      "id": "chr-action-001",
+      "title": "",
+      "steps": [],
+      "evidence_level": "official",
+      "sources": ["https://support.google.com/chrome/"],
+      "risks": [],
+      "prerequisites": []
+    }
+  ]
+}

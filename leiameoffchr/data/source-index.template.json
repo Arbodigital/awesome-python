@@ -1,0 +1,14 @@
+{
+  "product": "chrome",
+  "version": "template-v1",
+  "sources": [
+    {
+      "id": "chrome-95346",
+      "url": "https://support.google.com/chrome/answer/95346",
+      "title": "",
+      "language": "en",
+      "topic": "",
+      "status": "to_review"
+    }
+  ]
+}
