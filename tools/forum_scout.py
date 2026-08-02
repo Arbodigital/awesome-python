@@ -63,6 +63,14 @@ def _normalise_github_url(url: str) -> str:
     return f"github.com/{m.group(1).lower()}"
 
 
+def _is_github_url(url: str) -> bool:
+    """Return True only if the URL's hostname is exactly github.com."""
+    try:
+        return urlparse(url).hostname == "github.com"
+    except ValueError:
+        return False
+
+
 def load_existing_github_urls(readme_path: Path) -> set[str]:
     """Return normalised GitHub URLs already listed in README.md."""
     text = readme_path.read_text(encoding="utf-8")
@@ -71,10 +79,10 @@ def load_existing_github_urls(readme_path: Path) -> set[str]:
     for group in groups:
         for cat in group["categories"]:
             for entry in cat["entries"]:
-                if "github.com" in entry["url"]:
+                if _is_github_url(entry["url"]):
                     seen.add(_normalise_github_url(entry["url"]))
                 for also in entry["also_see"]:
-                    if "github.com" in also["url"]:
+                    if _is_github_url(also["url"]):
                         seen.add(_normalise_github_url(also["url"]))
     return seen
 
