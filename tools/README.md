@@ -120,15 +120,17 @@ uv run python tools/forum_scout.py --help
 ```
 ## Forum Scout Report — 5 candidate(s)
 
-#   Score  Source           Repo                        Suggested Category        Title
-1    892   r/Python         pallets/click               Command-line Inter...      Show HN: Click 9.0 released
-2    541   HN               encode/httpx                HTTP Clients               Show HN: HTTPX — async HTTP client
+#   Score   Stars  Source           Repo                        Suggested Category        Title
+1    892    1,234  r/Python         pallets/click               Command-line Inter...      Show HN: Click 9.0 released
+2    541    8,900  HN               encode/httpx                HTTP Clients               Show HN: HTTPX — async HTTP client
 …
 
 ### Details
 
 #### 1. pallets/click
 - **GitHub**: https://github.com/pallets/click
+- **Stars**: 1,234
+- **Last commit**: 2025-06-15
 - **Source**: r/Python (score: 892)
 - **Post**: [Show HN: Click 9.0 released](https://reddit.com/r/…)
 - **Suggested category**: Command-line Interface Development
@@ -136,18 +138,84 @@ uv run python tools/forum_scout.py --help
 
 ---
 
+## `auto_add_entry.py` — README Entry Inserter
+
+Inserts a new entry into `README.md` at the correct **alphabetical position**
+within the target category.  Also supports creating draft PRs automatically
+via the GitHub API when paired with `forum_scout --json` output.
+
+### Usage (single entry)
+
+```bash
+# Fetch description from GitHub automatically
+make add-entry ARGS="--github-url https://github.com/owner/repo --category 'Web Frameworks'"
+
+# Specify everything explicitly
+make add-entry ARGS="--github-url https://github.com/owner/repo \
+  --category 'Web Frameworks' --name mylib --description 'A great framework.'"
+
+# Preview without writing
+make add-entry ARGS="--github-url https://github.com/owner/repo \
+  --category 'Web Frameworks' --dry-run"
+
+# Subcategorized section
+make add-entry ARGS="--github-url https://github.com/owner/repo \
+  --category 'CLI Development' --subcategory 'CLI Development' \
+  --description 'A CLI tool.'"
+```
+
+### Usage (batch + auto PR)
+
+```bash
+# 1. Discover candidates and enrich with GitHub data
+uv run python tools/forum_scout.py \
+    --timeframe week \
+    --enrich --min-stars 500 \
+    --json > /tmp/candidates.json
+
+# 2a. Preview candidates (no writes)
+uv run python tools/auto_add_entry.py \
+    --from-scout /tmp/candidates.json --dry-run
+
+# 2b. Create draft PRs for every qualifying candidate
+uv run python tools/auto_add_entry.py \
+    --from-scout /tmp/candidates.json \
+    --min-stars 500 \
+    --create-prs
+```
+
+The `--create-prs` flag uses the GitHub REST API (via `GITHUB_TOKEN`) to:
+1. Create a new branch `auto-scout/{owner}-{repo}`
+2. Commit the README change to that branch
+3. Open a **draft pull request** against the default branch
+
+All auto-generated PRs require human review before merging.
+
+---
+
 ## Make targets
 
-| Command      | Description                                      |
-|-------------|--------------------------------------------------|
-| `make tree`  | Print the full category tree from `README.md`    |
-| `make scout` | Run the forum scout with default settings        |
+| Command             | Description                                              |
+|---------------------|----------------------------------------------------------|
+| `make tree`         | Print the full category tree from `README.md`            |
+| `make scout`        | Run the forum scout with default settings                |
+| `make add-entry`    | Insert a single entry (pass options via `ARGS=`)         |
+
+---
+
+## Automated weekly workflow
+
+`.github/workflows/auto-scout.yml` runs every Monday at 09:00 UTC.  It:
+
+1. Runs `forum_scout.py --enrich --min-stars 500` to collect candidates
+2. Calls `auto_add_entry.py --create-prs` to open draft PRs
+3. Can also be triggered manually via **Actions → Auto Scout → Run workflow**
 
 ---
 
 ## Dependencies
 
-Both scripts use only libraries already declared in `pyproject.toml`
+All scripts use only libraries already declared in `pyproject.toml`
 (`httpx`, `markdown-it-py`).  Install them with:
 
 ```bash

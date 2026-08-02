@@ -10,13 +10,18 @@ Usage:
     uv run python tools/forum_scout.py --timeframe week
     uv run python tools/forum_scout.py --subreddits Python django --limit 200
     uv run python tools/forum_scout.py --hn-query "python library" --no-reddit
+    uv run python tools/forum_scout.py --enrich --min-stars 500
+    uv run python tools/forum_scout.py --enrich --json > /tmp/candidates.json
 """
 
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import re
 import sys
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import TypedDict
 from urllib.parse import urlparse
@@ -48,6 +53,9 @@ class Candidate(TypedDict):
     post_url: str
     post_title: str
     suggested_category: str
+    stars: int            # GitHub stargazers count; 0 if not enriched
+    last_commit_date: str  # ISO date (YYYY-MM-DD) or "" if not enriched
+    description: str       # GitHub repo description or ""
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +182,9 @@ def fetch_reddit(subreddits: list[str], timeframe: str, limit: int) -> list[Cand
                             post_url=post_url,
                             post_title=title,
                             suggested_category="",
+                            stars=0,
+                            last_commit_date="",
+                            description="",
                         )
                     )
     return candidates
@@ -221,6 +232,9 @@ def fetch_hn(query: str, limit: int) -> list[Candidate]:
                         post_url=post_url,
                         post_title=title,
                         suggested_category="",
+                        stars=0,
+                        last_commit_date="",
+                        description="",
                     )
                 )
     return candidates
@@ -275,8 +289,44 @@ def _skip_repo(github_url: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# GitHub enrichment
+# ---------------------------------------------------------------------------
+
+_GH_API = "https://api.github.com"
+
+
+def enrich_with_github(candidates: list[Candidate], token: str | None) -> None:
+    """Fetch stars, last-commit date, and description from GitHub API (in-place)."""
+    headers = {**_HEADERS}
+    if token:
+        headers["Authorization"] = "Bearer " + token
+    with httpx.Client(headers=headers, timeout=_TIMEOUT, follow_redirects=True) as client:
+        for c in candidates:
+            owner_repo = _repo_name(c["github_url"])
+            try:
+                resp = client.get(f"{_GH_API}/repos/{owner_repo}")
+                if resp.status_code == 404:
+                    continue
+                if resp.status_code == 403 and b"rate limit" in resp.content.lower():
+                    print("  [github] Rate limit reached. Stopping enrichment.", file=sys.stderr)
+                    break
+                resp.raise_for_status()
+                data = resp.json()
+                c["stars"] = data.get("stargazers_count", 0)
+                c["description"] = (data.get("description") or "").strip()
+                pushed_at: str = data.get("pushed_at") or ""
+                c["last_commit_date"] = pushed_at[:10] if pushed_at else ""
+            except httpx.HTTPError as exc:
+                print(f"  [github] {owner_repo}: {exc}", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
+
+
+def _print_json(candidates: list[Candidate]) -> None:
+    print(json.dumps(candidates, indent=2, ensure_ascii=False))
 
 
 def _print_report(candidates: list[Candidate]) -> None:
@@ -285,18 +335,25 @@ def _print_report(candidates: list[Candidate]) -> None:
         return
 
     print(f"## Forum Scout Report — {len(candidates)} candidate(s)\n")
-    print(f"{'#':<3}  {'Score':>5}  {'Source':<15}  {'Repo':<40}  {'Suggested Category':<30}  Title")
-    print("-" * 140)
+    print(f"{'#':<3}  {'Score':>5}  {'Stars':>7}  {'Source':<15}  {'Repo':<40}  {'Suggested Category':<30}  Title")
+    print("-" * 150)
     for i, c in enumerate(candidates, 1):
         repo = _repo_name(c["github_url"])
         title = c["post_title"][:60] + ("…" if len(c["post_title"]) > 60 else "")
         cat = c["suggested_category"] or "—"
-        print(f"{i:<3}  {c['score']:>5}  {c['source']:<15}  {repo:<40}  {cat:<30}  {title}")
+        stars_str = f"{c['stars']:,}" if c["stars"] else "—"
+        print(f"{i:<3}  {c['score']:>5}  {stars_str:>7}  {c['source']:<15}  {repo:<40}  {cat:<30}  {title}")
     print()
     print("### Details\n")
     for i, c in enumerate(candidates, 1):
         print(f"#### {i}. {c['name']}")
         print(f"- **GitHub**: {c['github_url']}")
+        if c["stars"]:
+            print(f"- **Stars**: {c['stars']:,}")
+        if c["last_commit_date"]:
+            print(f"- **Last commit**: {c['last_commit_date']}")
+        if c["description"]:
+            print(f"- **Description**: {c['description']}")
         print(f"- **Source**: {c['source']} (score: {c['score']})")
         print(f"- **Post**: [{c['post_title']}]({c['post_url']})")
         print(f"- **Suggested category**: {c['suggested_category'] or '—'}")
@@ -359,6 +416,37 @@ def main(argv: list[str] | None = None) -> int:
         default=10,
         help="Minimum post score to include (default: 10)",
     )
+    parser.add_argument(
+        "--enrich",
+        action="store_true",
+        help="Fetch GitHub stars, last-commit date, and description for each candidate",
+    )
+    parser.add_argument(
+        "--github-token",
+        default=os.environ.get("GITHUB_TOKEN"),
+        metavar="TOKEN",
+        help="GitHub API token for enrichment (default: $GITHUB_TOKEN)",
+    )
+    parser.add_argument(
+        "--min-stars",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Minimum GitHub stars to include (requires --enrich, default: 0)",
+    )
+    parser.add_argument(
+        "--max-commit-age",
+        type=int,
+        default=0,
+        metavar="DAYS",
+        help="Maximum days since last commit (requires --enrich, 0 = no limit, default: 0)",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Output candidates as JSON (suitable for auto_add_entry.py --from-scout)",
+    )
     args = parser.parse_args(argv)
 
     if not args.readme.exists():
@@ -393,9 +481,30 @@ def main(argv: list[str] | None = None) -> int:
         c["suggested_category"] = suggest_category(c["post_title"], "", category_names)
 
     print(f"New candidates after filtering: {len(candidates)}", file=sys.stderr)
+
+    # Optional GitHub enrichment
+    if args.enrich:
+        print(f"Enriching {len(candidates)} candidates via GitHub API…", file=sys.stderr)
+        enrich_with_github(candidates, args.github_token)
+        if args.min_stars > 0:
+            before = len(candidates)
+            candidates = [c for c in candidates if c["stars"] >= args.min_stars]
+            print(f"  Filtered by min-stars={args.min_stars}: {before} → {len(candidates)}", file=sys.stderr)
+        if args.max_commit_age > 0:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=args.max_commit_age)).date()
+            before = len(candidates)
+            candidates = [
+                c for c in candidates
+                if c["last_commit_date"] and date.fromisoformat(c["last_commit_date"]) >= cutoff
+            ]
+            print(f"  Filtered by max-commit-age={args.max_commit_age}d: {before} → {len(candidates)}", file=sys.stderr)
+
     print(file=sys.stderr)
 
-    _print_report(candidates)
+    if args.as_json:
+        _print_json(candidates)
+    else:
+        _print_report(candidates)
     return 0
 
 

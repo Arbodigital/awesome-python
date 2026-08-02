@@ -1,0 +1,74 @@
+name: Auto Scout
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"  # Every Monday at 09:00 UTC
+  workflow_dispatch:
+    inputs:
+      timeframe:
+        description: "Reddit timeframe (hour/day/week/month/year/all)"
+        default: "week"
+        required: false
+      min_stars:
+        description: "Minimum GitHub stars"
+        default: "500"
+        required: false
+      dry_run:
+        description: "Dry run — show candidates without creating PRs"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --group build --locked
+
+      - name: Run forum scout with GitHub enrichment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TIMEFRAME="${{ github.event.inputs.timeframe || 'week' }}"
+          MIN_STARS="${{ github.event.inputs.min_stars || '500' }}"
+          uv run python tools/forum_scout.py \
+            --timeframe "$TIMEFRAME" \
+            --enrich \
+            --min-stars "$MIN_STARS" \
+            --max-commit-age 365 \
+            --min-score 20 \
+            --json \
+            > /tmp/scout_candidates.json
+          COUNT=$(python -c "import json,sys; print(len(json.load(open('/tmp/scout_candidates.json'))))")
+          echo "Candidates after enrichment: $COUNT"
+
+      - name: Create draft PRs for qualifying candidates
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MIN_STARS="${{ github.event.inputs.min_stars || '500' }}"
+          uv run python tools/auto_add_entry.py \
+            --from-scout /tmp/scout_candidates.json \
+            --min-stars "$MIN_STARS" \
+            --create-prs
+
+      - name: Dry-run preview (no PRs created)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          MIN_STARS="${{ github.event.inputs.min_stars || '500' }}"
+          uv run python tools/auto_add_entry.py \
+            --from-scout /tmp/scout_candidates.json \
+            --min-stars "$MIN_STARS" \
+            --dry-run
