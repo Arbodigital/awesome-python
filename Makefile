@@ -22,6 +22,12 @@ typecheck:
 build:
 	uv run python website/build.py
 
+tree:
+	uv run python tools/print_tree.py
+
+scout:
+	uv run python tools/forum_scout.py
+
 preview: build
 	uv run watchmedo shell-command \
 		--patterns='*.md;*.html;*.css;*.js;*.py' \
