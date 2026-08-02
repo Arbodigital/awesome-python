@@ -1,0 +1,46 @@
+{
+  "product": "chrome",
+  "version": "v1",
+  "sources": [
+    {
+      "id": "chrome-0001",
+      "url": "https://support.google.com/chrome",
+      "title": "",
+      "language": "en",
+      "topic": "",
+      "status": "to_review"
+    },
+    {
+      "id": "chrome-0002",
+      "url": "https://support.google.com/chrome/answer/11032183",
+      "title": "",
+      "language": "en",
+      "topic": "",
+      "status": "to_review"
+    },
+    {
+      "id": "chrome-0003",
+      "url": "https://support.google.com/chrome/answer/95314",
+      "title": "",
+      "language": "en",
+      "topic": "",
+      "status": "to_review"
+    },
+    {
+      "id": "chrome-0004",
+      "url": "https://support.google.com/chrome/answer/95346",
+      "title": "",
+      "language": "en",
+      "topic": "",
+      "status": "to_review"
+    },
+    {
+      "id": "chrome-0005",
+      "url": "https://support.google.com/chrome/answer/95464",
+      "title": "",
+      "language": "en",
+      "topic": "",
+      "status": "to_review"
+    }
+  ]
+}
