@@ -108,3 +108,21 @@ PRs will be **closed** if:
 - No documentation or unclear use case
 - Less than 100 GitHub stars without Hidden Gem justification
 - Repository less than 1 months old
+
+## Maintenance Tools
+
+The `tools/` directory contains scripts for curators to audit the catalogue
+and discover new candidates.  See [`tools/README.md`](tools/README.md) for
+full documentation.
+
+| Script | Purpose |
+|---|---|
+| `tools/print_tree.py` | Print the full category hierarchy from `README.md` |
+| `tools/forum_scout.py` | Search Reddit and Hacker News for unlisted Python projects |
+
+Quick start:
+
+```bash
+make tree    # view category structure
+make scout   # scan forums for candidates
+```
