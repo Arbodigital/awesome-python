@@ -22,6 +22,15 @@ typecheck:
 build:
 	uv run python website/build.py
 
+tree:
+	uv run python tools/print_tree.py
+
+scout:
+	uv run python tools/forum_scout.py
+
+add-entry:
+	uv run python tools/auto_add_entry.py $(ARGS)
+
 preview: build
 	uv run watchmedo shell-command \
 		--patterns='*.md;*.html;*.css;*.js;*.py' \
