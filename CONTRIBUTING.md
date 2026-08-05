@@ -119,10 +119,15 @@ full documentation.
 |---|---|
 | `tools/print_tree.py` | Print the full category hierarchy from `README.md` |
 | `tools/forum_scout.py` | Search Reddit and Hacker News for unlisted Python projects |
+| `tools/check_links.py` | Detect broken links and archived repos in `README.md` |
+| `tools/check_order.py` | Validate alphabetical ordering within every category |
 
 Quick start:
 
 ```bash
-make tree    # view category structure
-make scout   # scan forums for candidates
+make tree         # view category structure
+make scout        # scan forums for candidates
+make check-links  # find broken or archived links
+make check-order  # validate alphabetical sorting
+make fix-order    # auto-sort entries in place
 ```

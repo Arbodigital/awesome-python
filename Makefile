@@ -31,6 +31,15 @@ scout:
 add-entry:
 	uv run python tools/auto_add_entry.py $(ARGS)
 
+check-links:
+	uv run python tools/check_links.py $(ARGS)
+
+check-order:
+	uv run python tools/check_order.py $(ARGS)
+
+fix-order:
+	uv run python tools/check_order.py --fix
+
 preview: build
 	uv run watchmedo shell-command \
 		--patterns='*.md;*.html;*.css;*.js;*.py' \

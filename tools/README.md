@@ -193,13 +193,104 @@ All auto-generated PRs require human review before merging.
 
 ---
 
-## Make targets
+## `check_links.py` — Link Health Checker
 
-| Command             | Description                                              |
-|---------------------|----------------------------------------------------------|
-| `make tree`         | Print the full category tree from `README.md`            |
-| `make scout`        | Run the forum scout with default settings                |
-| `make add-entry`    | Insert a single entry (pass options via `ARGS=`)         |
+Iterates every URL in `README.md` and checks for broken links and archived
+GitHub repositories.  GitHub repos are verified via the API (detecting 404,
+archived status, and legal takedowns).  Non-GitHub URLs are checked with HTTP
+HEAD/GET requests.
+
+### Usage
+
+```bash
+# Check all links (GitHub + generic URLs)
+make check-links
+
+# Check only GitHub repo URLs (faster, no rate-limit concerns for other hosts)
+make check-links ARGS="--github-only"
+
+# Increase concurrency and reduce timeout for speed
+make check-links ARGS="--concurrency 20 --timeout 10"
+
+# Also fail if any archived repos are found
+make check-links ARGS="--fail-on-archived"
+
+# Machine-readable JSON output
+make check-links ARGS="--json" > /tmp/broken_links.json
+
+# Full options
+uv run python tools/check_links.py --help
+```
+
+Set `GITHUB_TOKEN` in your environment to increase API rate limits from
+60 to 5,000 requests/hour.
+
+### Output example
+
+```
+Checking 612 links (concurrency=10, timeout=20.0s)…
+
+  ✗ [BROKEN] awesome-lib (Data Formats)
+      https://github.com/old-owner/awesome-lib
+      HTTP 404 — repo not found or renamed
+  ⚠ [ARCHIVED] legacy-tool (Networking)
+      https://github.com/author/legacy-tool
+      Repository is archived on GitHub
+
+────────────────────────────────────────────────────────────
+  Total checked : 612
+  Broken        : 1
+  Archived      : 1
+  Errors        : 0
+  Time          : 14.3s
+────────────────────────────────────────────────────────────
+```
+
+---
+
+## `check_order.py` — Alphabetical Order Validator
+
+Validates that every entry within each category (and subcategory) of
+`README.md` is in strict alphabetical order.  This check runs automatically
+in CI on every pull request, so out-of-order entries are caught before merge.
+
+### Usage
+
+```bash
+# Validate and report violations
+make check-order
+
+# Auto-sort and overwrite README.md
+make fix-order
+
+# Machine-readable output
+make check-order ARGS="--json"
+
+# Full options
+uv run python tools/check_order.py --help
+```
+
+### Output example
+
+```
+❌ Found 2 ordering violation(s):
+
+  Line 412: [zope] should come before [zxcvbn] in 'Authentication'
+  Line 1087: [werkzeug] should come before [whitenoise] in 'Web Frameworks'
+
+Run with --fix to auto-sort the README.
+```
+
+---
+
+| Command              | Description                                              |
+|----------------------|----------------------------------------------------------|
+| `make tree`          | Print the full category tree from `README.md`            |
+| `make scout`         | Run the forum scout with default settings                |
+| `make add-entry`     | Insert a single entry (pass options via `ARGS=`)         |
+| `make check-links`   | Check all URLs for broken links and archived repos       |
+| `make check-order`   | Validate alphabetical ordering within every category     |
+| `make fix-order`     | Auto-sort entries in place and overwrite `README.md`     |
 
 ---
 
