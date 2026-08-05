@@ -29,5 +29,8 @@ jobs:
       - name: Run tests
         run: make test
 
+      - name: Validate alphabetical order
+        run: make check-order
+
       - name: Build website
         run: make build
