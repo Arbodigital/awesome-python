@@ -225,6 +225,8 @@ def _sort_subcategorized_section(lines: list[str], start: int, end: int) -> list
 def fix_readme_order(readme_path: Path) -> int:
     """Sort entries in every section. Return number of sections fixed."""
     text = readme_path.read_text(encoding="utf-8")
+    # Detect and preserve the original line-ending style.
+    newline = "\r\n" if "\r\n" in text else "\n"
     lines = text.splitlines()
     sections = _find_sections(lines)
     fixed = 0
@@ -239,7 +241,7 @@ def fix_readme_order(readme_path: Path) -> int:
             lines = new_lines
             fixed += 1
 
-    readme_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    readme_path.write_text(newline.join(lines) + newline, encoding="utf-8")
     return fixed
 
 

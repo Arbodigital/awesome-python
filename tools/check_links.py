@@ -18,6 +18,7 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -103,7 +104,7 @@ def _is_github_repo_url(url: str) -> bool:
         if parsed.hostname != "github.com":
             return False
         parts = parsed.path.strip("/").split("/")
-        return len(parts) >= 2 and parts[0] and parts[1]
+        return len(parts) >= 2 and bool(parts[0]) and bool(parts[1])
     except ValueError:
         return False
 
@@ -185,14 +186,23 @@ def check_url(
     token: str | None,
     timeout: float,
     github_only: bool,
+    client: httpx.Client | None = None,
 ) -> LinkResult:
+    """Check a single URL, reusing *client* if provided (for connection pooling)."""
     headers = {"User-Agent": "awesome-python-link-checker/1.0"}
-    with httpx.Client(headers=headers, timeout=timeout, follow_redirects=True) as client:
+    if client is not None:
         if _is_github_repo_url(url):
             return check_github_repo(url, name, category, client, token)
         if github_only:
             return LinkResult(url, name, category, "ok", "skipped (non-GitHub)")
         return check_generic_url(url, name, category, client)
+
+    with httpx.Client(headers=headers, timeout=timeout, follow_redirects=True) as c:
+        if _is_github_repo_url(url):
+            return check_github_repo(url, name, category, c, token)
+        if github_only:
+            return LinkResult(url, name, category, "ok", "skipped (non-GitHub)")
+        return check_generic_url(url, name, category, c)
 
 
 # ---------------------------------------------------------------------------
@@ -251,9 +261,24 @@ def main(argv: list[str] | None = None) -> int:
     results: list[LinkResult] = []
     start = time.monotonic()
 
+    # One shared httpx.Client per thread for connection pooling.
+    _thread_local = threading.local()
+
+    def _get_client() -> httpx.Client:
+        if not hasattr(_thread_local, "client"):
+            _thread_local.client = httpx.Client(
+                headers={"User-Agent": "awesome-python-link-checker/1.0"},
+                timeout=args.timeout,
+                follow_redirects=True,
+            )
+        return _thread_local.client
+
+    def _check(url: str, name: str, cat: str) -> LinkResult:
+        return check_url(url, name, cat, token, args.timeout, args.github_only, _get_client())
+
     with ThreadPoolExecutor(max_workers=args.concurrency) as executor:
         futures = {
-            executor.submit(check_url, url, name, cat, token, args.timeout, args.github_only): (url, name, cat)
+            executor.submit(_check, url, name, cat): (url, name, cat)
             for url, name, cat in links
         }
         done = 0
